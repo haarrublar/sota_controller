@@ -4,10 +4,10 @@ class XboxController:
 
     BUTTONS = {
         "A": 0, "B": 1, "X": 2, "Y": 3,
-        "LB": 4, "RB": 5, "BACK": 6, "START": 7,
-        "L3": 8, "R3": 9, "GUIDE": 10, "SHARE": 11,
-        "TRIM_FORWARD": 12, "TRIM_BACKWARD": 13,
-        "TRIM_LEFT": 14, "TRIM_RIGHT": 15,
+        "SCREEN": 4, "RB": 5, "OPTIONS": 6, "LEFT_AXE": 7,
+        "RIGHT_AXE": 8, "LB": 9, "RB": 10, "TF": 11,
+        "TB": 12, "TL": 13,
+        "TR": 14, "SHARE": 15,
     }
 
     AXES = {

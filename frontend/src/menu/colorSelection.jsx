@@ -1,98 +1,97 @@
-import { useState, useEffect, useRef } from 'react';
-import { get_button_cache } from '../tools/get';
-
+import { useState, useEffect } from "react";
+import { controllerEvents, sendControllerEvent } from "../tools/websocketAPI";
 
 const ITEMS = [
-  { id: 'color1', label: 'Color 1', bg: 'bg-red-300', hex: '#fca5a5' },
-  { id: 'color2', label: 'Color 2', bg: 'bg-blue-300', hex: '#93c5fd' },
-  { id: 'color3', label: 'Color 3', bg: 'bg-green-300', hex: '#86efac' },
+	{ id: "color1", label: "red", hex: "#ff0000", bg: "bg-red-600", text: "text-red-600" },
+	{ id: "color2", label: "green", hex: "#00ff00", bg: "bg-green-500", text: "text-green-500" },
+	{ id: "color3", label: "blue", hex: "#0000ff", bg: "bg-blue-600", text: "text-blue-600" },
+	{ id: "color4", label: "white", hex: "#ffffff", bg: "bg-white", text: "text-slate-900" },
+	{ id: "color5", label: "reset", hex: "#000000", bg: "bg-black", text: "text-black" },
 ];
 
-export default function ColorSelection({ onSelectColor }) {
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [selectedColor, setSelectedColor] = useState(null);
+const ACCEPT_BUTTON_INDEX = ITEMS.length;
 
-  const selectedIndexRef = useRef(selectedIndex);
-  useEffect(() => {
-    selectedIndexRef.current = selectedIndex;
-  }, [selectedIndex]);
+export default function ColorSelector({ onSelectColor }) {
+	const [selectedIndex, setSelectedIndex] = useState(0);
+	const [focusedIndex, setFocusedIndex] = useState(0);
 
+	const handleConfirmSelection = (index) => {
+		const chosenItem = ITEMS[index];
 
-  const handleConfirmSelection = (index) => {
-    const chosenItem = ITEMS[index];
-    setSelectedColor(chosenItem);
-    console.log('Retrieved Color:', chosenItem);
+		sendControllerEvent({
+			action: "SELECT_COLOR",
+			color: chosenItem,
+			timestamp: new Date().toISOString(),
+		});
 
-    sendMessage({
-      action: 'SELECT_COLOR',
-      color: chosenItem,
-    });
+		if (onSelectColor) {
+			onSelectColor(chosenItem);
+		}
+	};
 
-    if (onSelectColor) {
-      onSelectColor(chosenItem);
-    }
-  };
+	useEffect(() => {
+		const cleanup = controllerEvents((controllerData) => {
+			if (controllerData?.type !== "button") return;
 
-  const prevTimeStampRef = useRef(null);
+			const buttonName = controllerData.name;
+			const totalElements = ITEMS.length + 1;
 
-  useEffect(() => {
-    const getButtonsCache = async () => {
-      try {
-        const buttonsData = await get_button_cache();
-        // console.log(buttonsData?.[0]?.t)
-        // print(buttonsData)
+			if (buttonName === "TB") {
+				setFocusedIndex((prev) => (prev + 1) % totalElements);
+			} else if (buttonName === "TF") {
+				setFocusedIndex((prev) => (prev - 1 + totalElements) % totalElements);
+			} else if (buttonName === "A") {
+				setFocusedIndex((currentFocus) => {
+					if (currentFocus === ACCEPT_BUTTON_INDEX) {
+						handleConfirmSelection(selectedIndex);
+						return currentFocus;
+					} else {
+						setSelectedIndex(currentFocus);
+						return ACCEPT_BUTTON_INDEX;
+					}
+				});
+			}
+		});
 
-        if (buttonsData?.[0]?.t !== undefined) {
-          const currentTimeStamp = buttonsData[0].t;
+		return () => cleanup && cleanup();
+	}, [selectedIndex]);
 
-          if (
-            prevTimeStampRef.current !== null &&
-            currentTimeStamp !== prevTimeStampRef.current
-          ) {
-            console.log(buttonsData[0]);
-          }
+	const isAcceptFocused = focusedIndex === ACCEPT_BUTTON_INDEX;
 
-          prevTimeStampRef.current = currentTimeStamp;
-        }
-      } catch (error) {
-        console.error("Error fetching buttons cache:", error);
-      }
-    };
-
-    getButtonsCache();
-    const intervalId = setInterval(getButtonsCache, 50);
-    return () => clearInterval(intervalId);
-  }, []);
-
-
-  return (
-    <div className='flex flex-col justify-center items-center gap-4'>
-      <div className='flex flex-col w-full justify-center items-center gap-2'>
-        {ITEMS.map((item, index) => {
-          const isSelected = selectedIndex === index;
-
-          return (
-            <div
-              key={item.id}
-              onClick={() => {
-                setSelectedIndex(index);
-                handleConfirmSelection(index);
-              }}
-              className={`w-1/2 h-10 content-center text-center cursor-pointer font-bold ${item.bg} ${
-                isSelected ? 'text-black outline-2 outline-black' : 'text-white'
-              }`}
-            >
-              {item.label}
-            </div>
-          );
-        })}
-      </div>
-
-      {selectedColor && (
-        <div className='p-2 bg-gray-100 rounded border border-gray-300 text-center'>
-          Retrieved: <span className='font-bold'>{selectedColor.label}</span> ({selectedColor.hex})
+	return (
+		<div className="flex flex-col w-full justify-center items-center gap-4">
+			<div className="flex flex-col w-1/3 justify-center gap-2">
+				<div className="flex w-min items-center content-start justify-start h-10 border-2">
+          Previous
         </div>
-      )}
-    </div>
-  );
+				{ITEMS.map((item, index) => {
+					const isSelected = selectedIndex === index;
+					const isFocused = focusedIndex === index;
+
+					return (
+						<div
+							key={item.id}
+							onClick={() => {
+								setSelectedIndex(index);
+								setFocusedIndex(index);
+							}}
+							className={`w-full h-10 content-center text-center cursor-pointer font-bold transition-all bg-white ${isSelected ? `font-extrabold text-black` : `text-black`} ${isFocused ? `ring-4 ring-yellow-400 scale-105 ${item.text}` : `text-black bg-black/50!`}`}
+						>
+							{item.label}
+						</div>
+					);
+				})}
+
+				<button
+					onClick={() => {
+						setFocusedIndex(ACCEPT_BUTTON_INDEX);
+						handleConfirmSelection(selectedIndex);
+					}}
+					className={`w-full h-10 text-black border-2 font-bold rounded cursor-pointer transition-all ${isAcceptFocused ? "ring-4 ring-yellow-400 scale-105 bg-black text-white" : ""}`}
+				>
+					Accept & Send
+				</button>
+			</div>
+		</div>
+	);
 }
